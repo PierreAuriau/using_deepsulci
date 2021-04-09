@@ -1,0 +1,203 @@
+from os import listdir
+import os.path as op
+import numpy as np
+import json
+
+
+class SubjectDataset:
+    def __init__(self, name, graph, notcut_graph):
+        self.name = name
+        self.graph = graph
+        self.notcut_graph = notcut_graph
+
+    def __lt__(self, other):
+        return self.name < other.name
+
+    def check(self):
+        if not op.exists(self.graph):
+            raise IOError("Missing file: " + self.graph)
+        if self.notcut_graph and not op.exists(self.notcut_graph):
+            raise IOError("Missing file: " + self.notcut_graph)
+        if not isinstance(self.name, str):
+            raise ValueError("Name must be a string")
+
+
+class CohortIterator:
+    def __init__(self, cohort):
+        self._cohort = cohort
+        self._index = 0
+
+    def __next__(self):
+        item = self._cohort.subjects[self._index]
+        self._index += 1
+        return item
+
+
+class Cohort:
+    def __init__(self, name=None, subjects=None, from_json=None, check=True):
+        if name is None and subjects is None and from_json is None:
+            raise ValueError("Cannot create Cohort without inputs.")
+        elif from_json is None:
+            if name is None or subjects is None:
+                raise ValueError(
+                    "Cannot create Cohort with only a name or a subject list")
+            self.name = name
+            self.subjects = subjects
+            if check:
+                for s in subjects:
+                    s.check()
+        else:
+            with open(from_json, 'r') as infile:
+                self.name = infile["name"]
+                for s in infile["graphs"]:
+                    sub = SubjectDataset(s, infile['graphs'][s])
+                    if check:
+                        sub.check()
+                    self.subjects.append(sub)
+
+    def __iter__(self):
+        return CohortIterator(self)
+
+    def __len__(self):
+        return len(self.subjects)
+
+    def get_by_name(self, name):
+        for s in self.subjects:
+            if s.name == name:
+                return s
+
+    def get_graphs(self):
+        graphs = []
+        for s in self.subjects:
+            graphs.append(s.graph)
+        return graphs
+
+    def get_notcut_graphs(self):
+        graphs = []
+        for s in self.subjects:
+            if not s.notcut_graph:
+                return None
+            graphs.append(s.notcut_graph)
+        return graphs
+
+    def concatenate(self, cohort, new_name=None):
+        subjects = self.subjects + cohort.subjects
+        return Cohort(new_name, sorted(subjects + cohort.subjects))
+
+    def to_json(self, filename=None):
+        data = {
+            "name": self.name,
+            "graphs": {s.name: s.graph for i, s in enumerate(self.subjects)}
+        }
+        if filename:
+            with open(filename, 'w') as outfile:
+                json.dump(data, outfile)
+        return data
+
+
+def bv_cohort(name, db_dir, hemi, centers, acquisition="default_acquisition",
+              analysis="default_analysis", graph_v="3.3", ngraph_v="3.2",
+              session="default_session"):
+    """
+    Parameters:
+        db_dir: Brainvisa database directory
+        hemi: Hemisphere ("L" or "R")
+        centers: str or array
+        acquisition:
+        analysis:
+        graph_v: Graph  version
+        ngraph_v: Notcut graph version (same as graph if None, if -1, do not use
+                  not cut graph)
+        session: Labelling session
+    """
+    centers = [centers] if isinstance(centers, str) else centers
+    ngraph_v = graph_v if ngraph_v is None else ngraph_v
+
+    # List subjects for archi database
+    snames = []
+    scenters = []
+    for center in centers:
+        for f in listdir(op.join(db_dir, center)):
+            if op.isdir(op.join(db_dir, center, f)):
+                snames.append(f)
+                scenters.append(center)
+    order = np.argsort(snames)
+    snames = np.array(snames)[order]
+    scenters = np.array(scenters)[order]
+
+    subjects = []
+    for i, s in enumerate(snames):
+        gfile = op.join(
+            db_dir, scenters[i], s, 't1mri', acquisition, analysis, 'folds',
+            graph_v, session, hemi + s + '_' + session + '.arg'
+        )
+        if ngraph_v == -1:
+            ngfile = None
+        else:
+            ngfile = op.join(
+                db_dir, scenters[i], s, 't1mri', acquisition, analysis, 'folds',
+                ngraph_v, hemi + s + '.arg'
+            )
+        subjects.append(SubjectDataset(s, gfile, ngfile))
+    return Cohort(name + "_hemi-" + hemi, subjects)
+
+
+# TODO: remove following lines
+# def archi_cohort(data_dir, hemi):
+#     # List subjects for archi database
+#     snames = []
+#     for f in listdir(op.join(data_dir, "t1-1mm-1")):
+#         if len(f) == 3:
+#             snames.append(f)
+#     snames = sorted(snames)
+#
+#     subjects = []
+#     for s in snames:
+#         gfile = op.join(
+#             data_dir, 't1-1mm-1', s, 't1mri' + 'default_acquisition',
+#             'default_analysis', 'folds', '3.3', 'session1_manual',
+#             hemi + s + '_session1_manual.arg')
+#         subjects.append(SubjectDataset(s, gfile))
+#     return Cohort("Archi_hemi-" + hemi, subjects)
+#
+#
+# def pclean_cohort(data_dir, hemi):
+#     # List subjects for archi database
+#     pclean = []
+#     pclean_dirs = []
+#     for d in ['jumeaux', 'nmr', 'panabase']:
+#         for f in listdir(op.join(data_dir, "data", "database_learnclean", d)):
+#             if op.isdir(f):
+#                 pclean.append(f)
+#                 pclean_dirs.append(d)
+#     order = np.argsort(pclean)
+#     pclean = np.array(pclean)[order]
+#     pclean_dirs = np.array(pclean_dirs)[order]
+#
+#     subjects = []
+#     for i, s in enumerate(pclean):
+#         gfile = op.join(
+#             data_dir, pclean_dirs[i], s , 't1mri', 't1', 'default_analysis',
+#             'folds', '3.3', 'base2018_manual', hemi + s + '_base2018_manual.arg'
+#         )
+#         subjects.append(SubjectDataset(s, gfile))
+#     return Cohort("PClean_hemi-" + hemi, subjects)
+#
+#
+# def hcp_cohort(data_dir, hemi):
+#     # List subjects for archi database
+#     snames = []
+#     for f in listdir(op.join(data_dir, "t1-1mm-1")):
+#         if len(f) == 3:
+#             snames.append(f)
+#     snames = sorted(snames)
+#
+#     subjects = []
+#     for s in snames:
+#         gfile = op.join(
+#             data_dir, 't1-1mm-1', s , 't1mri', 'default_acquisition',
+#             'default_analysis', 'folds', '3.1', 'default_session_auto',
+#             hemi + s + '_default_session_auto.arg'
+#         )
+#         subjects.append(SubjectDataset(s, gfile))
+#     return Cohort("HCP_hemi-" + hemi, subjects)
