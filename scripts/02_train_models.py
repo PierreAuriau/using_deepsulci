@@ -36,7 +36,10 @@ def train_cohort(cohort, out_dir, modelname, translation_file=None, cuda=-1):
     proc.traindata_file = op.join(out_dir, fname + "_traindata.json")
 
     # Run
-    proc._run_process()
+    if op.exists(proc.model_file):
+        print("Skipping the training. Model file already exist.")
+    else:
+        proc._run_process()
 
 
 def main():
