@@ -8,8 +8,10 @@ from deepsulci.sulci_labeling.capsul import SulciDeepTraining
 import json
 import sys
 from os import makedirs, listdir
+from datetime import datetime
 
 from using_deepsulci.cohort import Cohort
+from using_deepsulci.utils.misc import add_to_text_file
 
 
 def train_cohort(cohort, out_dir, modelname, translation_file=None, cuda=-1):
@@ -40,6 +42,13 @@ def train_cohort(cohort, out_dir, modelname, translation_file=None, cuda=-1):
 def main():
     # Load environnement file
     env = json.load(open(op.join(op.split(__file__)[0], "env.json")))
+    cohorts_dir = op.join(env['working_path'], "cohorts")
+
+    infered_file = None
+    if len(sys.argv) < 2:
+        sys.argv.append(cohorts_dir)
+    else:
+        infered_file = op.join(cohorts_dir, "cohort-" + sys.argv[1] + ".json")
 
     if op.isdir(sys.argv[1]):
         cohorts = []
@@ -48,17 +57,35 @@ def main():
         print(len(cohorts), " models to train")
         for c in cohorts:
             print("\t{}: {} subjects".format(c.name, len(c)))
+    elif op.isfile(sys.argv[1]):
+        cohorts = [Cohort(from_json=sys.argv[1])]
+    elif op.isfile(infered_file):
+        cohorts = [Cohort(from_json=infered_file)]
     else:
-        cohorts = [sys.argv[1]]
+        raise Exception("Cannot understand what should be done.")
+
+    cohorts = sorted(cohorts, key=len)
 
     cuda = int(sys.argv[2]) if len(sys.argv) > 2 else env['default_cuda']
 
+    outdir = op.join(env['working_path'], "models")
+    makedirs(outdir, exist_ok=True)
+
+    now = datetime.now().strftime("%Y%m%d_%H:%M:%S")
+    makedirs(op.join(env["working_path"], "logs"), exist_ok=True)
+    log_f = op.join(env["working_path"], "logs", "step_02_" + now + ".log")
+
     for cohort in cohorts:
+        print("\n\n ****** START TO TRAIN ", cohort.name)
+        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        add_to_text_file(log_f, "{} - Start to train {}".format(now,
+                                                                cohort.name))
         train_cohort(
             cohort,
-            makedirs(op.join(env['working_path'], "models"), exist_ok=True),
-            cuda,
-            env['translation_file']
+            outdir,
+            "unet3d",
+            env['translation_file'],
+            cuda
         )
     return None
 

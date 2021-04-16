@@ -22,47 +22,64 @@ import json
 from using_deepsulci.cohort import bv_cohort, Cohort
 
 
-def foldico_cohorts(data_dir, hemi):
-    """ Create all used cohortes based on several available databases.  """
-    cohorts = {}
+def foldico_cohorts(cohort_desc, hemi="both", composed_desc={}):
+    """ Create all used cohorts based on several available databases.  """
 
-    try:
-        pclean = bv_cohort("PClean", op.join(data_dir, "deepsulci_learning"),
-                           hemi, centers=['nmr', 'jumeaux', 'panabase'],
-                           ngraph_v="3.1", acquisition='t1',
-                           session='base2018_manual')
-        cohorts["PClean"] = pclean
-    except IOError as exc:
-        print("PClean is unavailable")
-        print("\tError: ", exc)
+    hemis = ["L", "R"] if hemi == "both" else [hemi]
 
-    try:
-        archi = bv_cohort("Archi", op.join(data_dir, "archi"), hemi, "t1-1mm-1",
-                          ngraph_v=-1, session='session1_manual')
-        cohorts["Archi"] = archi
-    except IOError as exc:
-        print("Archi database is unavailable")
-        print("\tError: ", exc)
+    all_cohortes = []
+    for h in hemis:
+        cohorts = {}
+        for cname, desc in cohort_desc.items():
+            try:
+                cohort = bv_cohort(cname, desc['path'], h,
+                                   centers=desc["centers"],
+                                   graph_v=desc['graph_v'],
+                                   ngraph_v=desc['ngraph_v'],
+                                   acquisition=desc['acquisition'],
+                                   session=desc['session'],
+                                   inclusion=desc['inclusion'],
+                                   exclusion=desc['exclusion'],
+                                   )
+                cohorts[cname] = cohort
+                all_cohortes.append(cohort)
 
-    try:
-        hcp = bv_cohort("HCP", op.join(data_dir, "hcp"), hemi, "t1-1mm-1",
-                        graph_v="3.1", session='default_session_auto')
-        cohorts["HCP"] = hcp
-    except IOError as exc:
-        print("HCP database is unavailable")
-        print("\tError: ", exc)
+                print("{}: {} subjects".format(cohort.name, len(cohort)))
+            except IOError as exc:
+                print(cname, "is unavailable")
+                print("\tError: ", exc)
 
-    if "PClean" in cohorts.keys() and "Archi" in cohorts.keys():
-        cohorts["140s"] = pclean.concatenate(archi, new_name="140s")
+        for cname, desc in composed_desc.items():
+            cohort = Cohort(cname + "_hemi-" + h, subjects=[])
+            do_not_add = False
+            for cname2 in desc.keys():
+                if cname2 not in cohorts.keys():
+                    print("{} is unavailable (need {})".format(cname,
+                                                               cname2))
+                    do_not_add = True
+                    break
 
-        cohorts["p30a30"] = Cohort(
-            "p30a30", pclean.subjects[:30] + archi.subjects[:30])
+                if len(desc[cname2]["indexes"]) == 0:
+                    cohort = cohort.concatenate(cohorts[cname2])
+                else:
+                    for subi in desc[cname2]["indexes"]:
+                        if subi > len(cohorts[cname2]):
+                            print("{} is unavailable (not enough subject in {})"
+                                  .format(cname, cname2))
+                            do_not_add = True
+                            break
+                        else:
+                            cohort.subjects.append(
+                                cohorts[cname2].subjects[subi])
+                    if do_not_add:
+                        break
 
-    if "PClean" in cohorts.keys() and "Archi" in cohorts.keys() and \
-        "HCP" in cohorts.keys():
-        cohorts["216s"] = pclean.concatenate(archi).concatenate(hcp, "216s")
+            if not do_not_add:
+                cohorts[cname] = cohort
+                all_cohortes.append(cohort)
+                print("{}: {} subjects".format(cohort.name, len(cohort)))
 
-    return cohorts
+    return all_cohortes
 
 
 def main():
@@ -74,14 +91,12 @@ def main():
     print("Cohorts will be saved to:", cohorts_dir)
 
     # Create all cohorts for both hemispheres
-    for h in ["L", "R"]:
-        cohortes = foldico_cohorts(env['bv_databases_path'], h)
+    cohorts = foldico_cohorts(env['cohorts'],
+                              composed_desc=env['composed_cohorts'])
 
-        for cohort in cohortes.keys():
-            c = cohortes[cohort]
-            print("{}: {} subjects".format(c.name, len(c)))
-            fname = "cohort-" + c.name + ".json"
-            c.to_json(op.join(cohorts_dir, fname))
+    for cohort in cohorts:
+        fname = "cohort-" + cohort.name + ".json"
+        cohort.to_json(op.join(cohorts_dir, fname))
 
 
 if __name__ == "__main__":

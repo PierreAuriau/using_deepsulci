@@ -34,13 +34,10 @@ class CohortIterator:
 
 
 class Cohort:
-    def __init__(self, name=None, subjects=None, from_json=None, check=True):
+    def __init__(self, name="Unnamed", subjects=[], from_json=None, check=True):
         if name is None and subjects is None and from_json is None:
             raise ValueError("Cannot create Cohort without inputs.")
         elif from_json is None:
-            if name is None or subjects is None:
-                raise ValueError(
-                    "Cannot create Cohort with only a name or a subject list")
             self.name = name
             self.subjects = subjects
             if check:
@@ -48,9 +45,12 @@ class Cohort:
                     s.check()
         else:
             with open(from_json, 'r') as infile:
-                self.name = infile["name"]
-                for s in infile["graphs"]:
-                    sub = SubjectDataset(s, infile['graphs'][s])
+                data = json.load(infile)
+                self.name = data["name"]
+                self.subjects = []
+                for s in data["subjects"]:
+                    sub = SubjectDataset(s['name'], s['graph'],
+                                         s['notcut_graph'])
                     if check:
                         sub.check()
                     self.subjects.append(sub)
@@ -76,19 +76,23 @@ class Cohort:
         graphs = []
         for s in self.subjects:
             if not s.notcut_graph:
-                return None
+                return []
             graphs.append(s.notcut_graph)
         return graphs
 
     def concatenate(self, cohort, new_name=None):
-        subjects = self.subjects + cohort.subjects
-        return Cohort(new_name, sorted(subjects + cohort.subjects))
+        new_name = self.name if new_name is None else new_name
+        return Cohort(new_name, sorted(self.subjects + cohort.subjects))
 
     def to_json(self, filename=None):
-        data = {
-            "name": self.name,
-            "graphs": {s.name: s.graph for i, s in enumerate(self.subjects)}
-        }
+        subdata = []
+        for s in self.subjects:
+            subdata.append({
+                "name": s.name,
+                "graph": s.graph,
+                "notcut_graph": s.notcut_graph
+            })
+        data = {"name": self.name, "subjects": subdata}
         if filename:
             with open(filename, 'w') as outfile:
                 json.dump(data, outfile)
@@ -97,7 +101,7 @@ class Cohort:
 
 def bv_cohort(name, db_dir, hemi, centers, acquisition="default_acquisition",
               analysis="default_analysis", graph_v="3.3", ngraph_v="3.2",
-              session="default_session"):
+              session="default_session", inclusion=[], exclusion=[]):
     """
     Parameters:
         db_dir: Brainvisa database directory
@@ -118,7 +122,9 @@ def bv_cohort(name, db_dir, hemi, centers, acquisition="default_acquisition",
     scenters = []
     for center in centers:
         for f in listdir(op.join(db_dir, center)):
-            if op.isdir(op.join(db_dir, center, f)):
+            if op.isdir(op.join(db_dir, center, f)) and \
+                    (len(inclusion) == 0 or f in inclusion) and \
+                    f not in exclusion:
                 snames.append(f)
                 scenters.append(center)
     order = np.argsort(snames)
