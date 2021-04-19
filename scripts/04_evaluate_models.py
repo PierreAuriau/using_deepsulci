@@ -10,7 +10,7 @@ from using_deepsulci.processes.classification_evaluation import \
 
 def evaluate_model(cohort, translation_file, model_file, param_file, out_file):
     graphs = []
-    for s in cohort:
+    for s in cohort.subjects:
         graphs.append(s.graph)
     print(len(graphs), "graphs to evaluate")
 
