@@ -43,8 +43,9 @@ def main():
     model_f = op.join(model_dir, modelname + "_model.mdsm")
     params_f = op.join(model_dir, modelname + "_params.json")
 
+    fname = modelname + "_teston-" + cohortname + ".npy"
     evaluate_model(Cohort(from_json=cohort_f), env['translation_file'],
-                   model_f, params_f, op.join(out_d, modelname + ".tsv"))
+                   model_f, params_f, op.join(out_d, fname))
 
 
 if __name__ == "__main__":

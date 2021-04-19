@@ -80,5 +80,5 @@ class DeepClassificationEvaluation(Process):
             glb_results['balanced_accuracy'].append(scr)
             glb_results['esi'].append(esi)
 
-        json.dump(results, open(self.out_file[:-5] + '_detail.json', 'w'))
-        json.dump(glb_results, open(self.out_file))
+        np.save(self.out_file[:-4] + '_detail.npy', results)
+        np.save(self.out_file, glb_results)
