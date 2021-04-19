@@ -61,8 +61,7 @@ class DeepClassificationEvaluation(Process):
         glb_results = {k: [] for k in ['graph', 'model', 'balanced_accuracy', 'esi']}
         for ig, g in enumerate(dict_names.keys()):
             print("\nLabeling", g)
-            y_true, y_pred, y_scores = method.labeling(
-                self.graphs[ig])#, dict_bck2[g], ['unknown'] * len(dict_bck2[g]))
+            y_true, y_pred, y_scores = method.labeling(self.graphs[ig])
             y_true = np.array(y_true)
             y_pred = np.array(y_pred)
 
@@ -73,11 +72,12 @@ class DeepClassificationEvaluation(Process):
                 sel = y_true == s
                 results['accuracy'].append(bacc_score(y_true[sel], y_pred[sel], np.unique(y_true)))
                 results['esi'].append(esi_score(y_true[sel], y_pred[sel], np.unique(y_true)))
-
             scr = bacc_score(y_true, y_pred, np.unique(y_true))
-            esi = esi_score(y_true, y_pred, np.unique(y_true)) #list(dict_bck2[g]))
+            esi = esi_score(y_true, y_pred, np.unique(y_true))
             glb_results['balanced_accuracy'].append(scr)
             glb_results['esi'].append(esi)
+
+
 
         pd.DataFrame(results).to_csv(self.out_file[:-4] + '_detail.tsv')
         pd.DataFrame(glb_results).to_csv(self.out_file)
