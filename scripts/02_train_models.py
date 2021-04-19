@@ -69,7 +69,7 @@ def main():
 
     cohorts = sorted(cohorts, key=len)
 
-    cuda = int(sys.argv[2]) if len(sys.argv) > 2 else env['default_cuda']
+    cuda = int(sys.argv[2]) if isinstance(sys.argv[-1]) else env['default_cuda']
 
     outdir = op.join(env['working_path'], "models")
     makedirs(outdir, exist_ok=True)
