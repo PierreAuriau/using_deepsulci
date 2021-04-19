@@ -32,18 +32,19 @@ def main():
     out_d = op.join(env['working_path'], "evaluations")
     makedirs(out_d, exist_ok=True)
 
-    for modelname in sys.argv[1:]:
-        print("Evaluate:", modelname)
+    modelname = sys.argv[1]
+    cohortname = sys.argv[2]
 
-        cohortname = modelname.split("_model")[0]
-        cohort_f = op.join(cohort_dir, cohortname + ".json")
+    print("Evaluate:", modelname)
 
-        model_f = op.join(model_dir, modelname + "_model.mdsm")
-        params_f = op.join(model_dir, modelname + "_params.json")
+    # cohortname = modelname.split("_model")[0]
+    cohort_f = op.join(cohort_dir, cohortname + ".json")
 
-        evaluate_model(Cohort(from_json=cohort_f), env['translation_file'],
-                       model_f, params_f,
-                       op.join(out_d, modelname + ".tsv"))
+    model_f = op.join(model_dir, modelname + "_model.mdsm")
+    params_f = op.join(model_dir, modelname + "_params.json")
+
+    evaluate_model(Cohort(from_json=cohort_f), env['translation_file'],
+                   model_f, params_f, op.join(out_d, modelname + ".tsv"))
 
 
 if __name__ == "__main__":
