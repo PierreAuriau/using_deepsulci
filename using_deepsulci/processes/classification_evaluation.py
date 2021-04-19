@@ -77,7 +77,5 @@ class DeepClassificationEvaluation(Process):
             glb_results['balanced_accuracy'].append(scr)
             glb_results['esi'].append(esi)
 
-
-
-        pd.DataFrame(results).to_csv(self.out_file[:-4] + '_detail.tsv')
-        pd.DataFrame(glb_results).to_csv(self.out_file)
+        json.dump(results, open(self.out_file[:-5] + '_detail.json', 'w'))
+        json.dump(glb_results, open(self.out_file))
