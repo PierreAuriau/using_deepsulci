@@ -2,6 +2,7 @@ from os import listdir
 import os.path as op
 import numpy as np
 import json
+from soma import aims
 
 
 class SubjectDataset:
@@ -40,9 +41,10 @@ class Cohort:
         elif from_json is None:
             self.name = name
             self.subjects = subjects
+
             if check:
                 for s in subjects:
-                    s.check()
+                        s.check()
         else:
             with open(from_json, 'r') as infile:
                 data = json.load(infile)
