@@ -40,6 +40,8 @@ class DeepClassificationEvaluation(Process):
         dict_bck2, dict_names = load_graphs(self.graphs, self.translation_file,
                                             verbosity=1)
 
+        print(dict_bck2)
+        print(dict_names)
         # Load params
         with open(self.param_file) as f:
             param = json.load(f)
