@@ -40,8 +40,8 @@ class DeepClassificationEvaluation(Process):
         dict_bck2, dict_names = load_graphs(self.graphs, self.translation_file,
                                             verbosity=1)
 
-        print(dict_bck2)
-        print(dict_names)
+        # print(dict_bck2)
+        # print(dict_names)
         # Load params
         with open(self.param_file) as f:
             param = json.load(f)
@@ -59,7 +59,7 @@ class DeepClassificationEvaluation(Process):
         # Labelize each graph
         esi_scores = []
         acc_scores = []
-        results = {k: [] for k in ['graph', 'model', 'sulci', 'accuracy', 'esi']}
+        results = {k: [] for k in ['graph', 'model', 'sulci', 'balanced_accuracy', 'esi']}
         glb_results = {k: [] for k in ['graph', 'model', 'balanced_accuracy', 'esi']}
         for ig, g in enumerate(dict_names.keys()):
             print("\nLabeling", g)
@@ -70,7 +70,7 @@ class DeepClassificationEvaluation(Process):
             for s in np.unique(y_true):
                 results['graph'].append(g)
                 results['model'].append(self.model_file)
-                results['sulci'].append(s)
+                results['label'].append(s)
                 sel = y_true == s
                 results['accuracy'].append(bacc_score(y_true[sel], y_pred[sel], np.unique(y_true)))
                 results['esi'].append(esi_score(y_true[sel], y_pred[sel], np.unique(y_true)))
