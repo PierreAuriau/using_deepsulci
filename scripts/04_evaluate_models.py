@@ -29,9 +29,6 @@ def main():
     model_dir = op.join(env['working_path'], "models")
     cohort_dir = op.join(env['working_path'], "cohorts")
 
-    out_d = op.join(env['working_path'], "evaluations")
-    makedirs(out_d, exist_ok=True)
-
     modelname = sys.argv[1]
     cohortname = sys.argv[2]
 
@@ -43,7 +40,10 @@ def main():
     model_f = op.join(model_dir, modelname + "_model.mdsm")
     params_f = op.join(model_dir, modelname + "_params.json")
 
+    out_d = op.join(env['working_path'], "evaluations", modelname)
+    makedirs(out_d, exist_ok=True)
     fname = modelname + "_teston-" + cohortname + ".npy"
+
     evaluate_model(Cohort(from_json=cohort_f), env['translation_file'],
                    model_f, params_f, op.join(out_d, fname))
 
