@@ -51,7 +51,10 @@ def main():
     if len(sys.argv) < 2:
         sys.argv.append(cohorts_dir)
     else:
-        infered_file = op.join(cohorts_dir, "cohort-" + sys.argv[1] + ".json")
+        infered_files = []
+        if isinstance(sys.argv[1], str):
+            for c in sys.argv[1:]:
+                infered_files.append(op.join(cohorts_dir, "cohort-" + c + ".json"))
 
     if op.isdir(sys.argv[1]):
         cohorts = []
@@ -62,14 +65,14 @@ def main():
             print("\t{}: {} subjects".format(c.name, len(c)))
     elif op.isfile(sys.argv[1]):
         cohorts = [Cohort(from_json=sys.argv[1])]
-    elif op.isfile(infered_file):
-        cohorts = [Cohort(from_json=infered_file)]
     else:
-        raise Exception("Cannot understand what should be done.")
+        cohorts = []
+        for f in infered_files:
+            cohorts.append(Cohort(from_json=f))
 
     cohorts = sorted(cohorts, key=len)
 
-    cuda = int(sys.argv[2]) if isinstance(sys.argv[-1]) else env['default_cuda']
+    cuda = env['default_cuda']
 
     outdir = op.join(env['working_path'], "models")
     makedirs(outdir, exist_ok=True)

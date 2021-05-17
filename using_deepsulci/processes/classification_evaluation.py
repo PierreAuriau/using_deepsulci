@@ -57,10 +57,7 @@ class DeepClassificationEvaluation(Process):
         method.load(self.model_file)
 
         # Labelize each graph
-        esi_scores = []
-        acc_scores = []
-        results = {k: [] for k in ['graph', 'model', 'sulci', 'balanced_accuracy', 'esi']}
-        glb_results = {k: [] for k in ['graph', 'model', 'balanced_accuracy', 'esi']}
+        results = {k: [] for k in ['graph', 'model', 'label', 'balanced_accuracy', 'esi']}
         for ig, g in enumerate(dict_names.keys()):
             print("\nLabeling", g)
             y_true, y_pred, y_scores = method.labeling(self.graphs[ig])
@@ -72,12 +69,6 @@ class DeepClassificationEvaluation(Process):
                 results['model'].append(self.model_file)
                 results['label'].append(s)
                 sel = y_true == s
-                results['accuracy'].append(bacc_score(y_true[sel], y_pred[sel], np.unique(y_true)))
+                results['balanced_accuracy'].append(bacc_score(y_true[sel], y_pred[sel], np.unique(y_true)))
                 results['esi'].append(esi_score(y_true[sel], y_pred[sel], np.unique(y_true)))
-            scr = bacc_score(y_true, y_pred, np.unique(y_true))
-            esi = esi_score(y_true, y_pred, np.unique(y_true))
-            glb_results['balanced_accuracy'].append(scr)
-            glb_results['esi'].append(esi)
-
-        np.save(self.out_file[:-4] + '_detail.npy', results)
-        np.save(self.out_file, glb_results)
+        np.save(self.out_file, results)
