@@ -30,7 +30,7 @@ class DeepClassificationEvaluation(Process):
             output=False, desc='file (.json) storing the hyperparameters'
                                ' (cutting threshold)'))
         self.add_trait('out_file', traits.File(
-            output=False, desc='file (.tsv)'))
+            output=False, desc='numpy file (.npy)'))
         self.add_trait('cuda', traits.Int(
             -1, output=False, desc='device on which to run the training'
                                    '(-1 for cpu, i>=0 for the i-th gpu)'))
