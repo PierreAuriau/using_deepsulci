@@ -14,7 +14,7 @@ class SubjectDataset:
             self.roots = roots
         elif replace_roots:
             print("/!\\ [subject " + name +
-                  "] roots image doesn't exists, replaced by skeleton image")
+                  "] roots image doesn't exist, replaced by skeleton image")
             self.roots = skeleton
         self.skeleton = skeleton
         self.graph = graph

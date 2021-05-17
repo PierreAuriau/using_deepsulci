@@ -46,6 +46,7 @@ def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
         lab_proc.model_file = model_file
         lab_proc.param_file = param_file
         lab_proc.labeld_graph = labeled_graph
+        lab_proc.run()
 
         # esi_proc = ce.get_process_instance(
         #     'deepsulci.sulci_labeling.capsul.error_computation')
@@ -54,7 +55,8 @@ def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
         esi_proc.true_graph = sub.graph
         esi_proc.labeled_graph = labeled_graph
         esi_proc.sulci_side_list = ss_list
-        esi_proc.error_file = op.join(esi_dir, g_fname)
+        esi_proc.error_file = op.join(esi_dir, g_fname[:-4] + '_esi.csv')
+        esi_proc.run()
 
 
 def main():
@@ -75,10 +77,11 @@ def main():
 
     out_d = op.join(env['working_path'], "evaluations", modelname)
     makedirs(out_d, exist_ok=True)
-    fname = modelname + "_teston-" + cohortname + ".npy"
-
-    evaluate_model(Cohort(from_json=cohort_f), env['translation_file'],
-                   model_f, params_f, op.join(out_d, fname))
+    # fname = modelname + "_teston-" + cohortname + ".npy"
+    # evaluate_model(Cohort(from_json=cohort_f), env['translation_file'],
+    #                model_f, params_f, op.join(out_d, fname))
+    evaluate_model(Cohort(from_json=cohort_f), model_f, params_f,
+                   labeled_dir=out_d)
 
 
 if __name__ == "__main__":
