@@ -31,7 +31,15 @@ from capsul.api import capsul_engine
 def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
     # ce = capsul_engine()
     esi_dir = labeled_dir if esi_dir is None else esi_dir
-    ss_list = json.load(open(param_file))['sulci_side_list']
+    params = json.load(open(param_file))
+
+    ss_list = params['sulci_side_list']
+
+    if 'cutting_threshold' not in params.keys():
+        # TODO: better manage of this or verify that the default value
+        print("/!\\ No cutting threshold, setting arbitrary value: 1")
+        params['cutting_threshold'] = 1
+        json.dump(params, open(param_file, 'w+'))
 
     for sub in cohort.subjects:
         g_fname = op.split(sub.graph)[1]
@@ -45,7 +53,7 @@ def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
         lab_proc.skeleton = sub.skeleton
         lab_proc.model_file = model_file
         lab_proc.param_file = param_file
-        lab_proc.labeld_graph = labeled_graph
+        lab_proc.labeled_graph = labeled_graph
         lab_proc.run()
 
         # esi_proc = ce.get_process_instance(
