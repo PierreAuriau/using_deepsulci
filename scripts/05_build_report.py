@@ -51,7 +51,7 @@ def summary_infos(result_f):
 
 
 def html_report(raw_data, data, modelname, cohortname):
-    title = "CNN Sucli Recognition Results"
+    title = "CNN Sulci Recognition Results"
     n_subs = len(np.unique(raw_data['graph']))
     n_labels = len(np.unique(raw_data['label']))
 

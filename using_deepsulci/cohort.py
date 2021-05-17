@@ -6,8 +6,17 @@ from soma import aims
 
 
 class SubjectDataset:
-    def __init__(self, name, graph, notcut_graph):
+    def __init__(self, name, t1, roots, skeleton, graph, notcut_graph,
+                 replace_roots=True):
         self.name = name
+        self.t1 = t1
+        if op.exists(roots):
+            self.roots = roots
+        elif replace_roots:
+            print("/!\\ [subject " + name +
+                  "] roots image doesn't exists, replaced by skeleton image")
+            self.roots = skeleton
+        self.skeleton = skeleton
         self.graph = graph
         self.notcut_graph = notcut_graph
 
@@ -15,6 +24,12 @@ class SubjectDataset:
         return self.name < other.name
 
     def check(self):
+        if not op.exists(self.t1):
+            raise IOError("Missing file: " + self.t1)
+        if not op.exists(self.roots):
+            raise IOError("Missing file: " + self.roots)
+        if not op.exists(self.skeleton):
+            raise IOError("Missing file: " + self.skeleton)
         if not op.exists(self.graph):
             raise IOError("Missing file: " + self.graph)
         if self.notcut_graph and not op.exists(self.notcut_graph):
@@ -51,8 +66,9 @@ class Cohort:
                 self.name = data["name"]
                 self.subjects = []
                 for s in data["subjects"]:
-                    sub = SubjectDataset(s['name'], s['graph'],
-                                         s['notcut_graph'])
+                    sub = SubjectDataset(
+                        s['name'], s['t1'], s['roots'], s['skeleton'],
+                        s['graph'], s['notcut_graph'])
                     if check:
                         sub.check()
                     self.subjects.append(sub)
@@ -91,6 +107,9 @@ class Cohort:
         for s in self.subjects:
             subdata.append({
                 "name": s.name,
+                "t1": s.t1,
+                "roots": s.roots,
+                "skeleton": s.skeleton,
                 "graph": s.graph,
                 "notcut_graph": s.notcut_graph
             })
@@ -119,7 +138,7 @@ def bv_cohort(name, db_dir, hemi, centers, acquisition="default_acquisition",
     centers = [centers] if isinstance(centers, str) else centers
     ngraph_v = graph_v if ngraph_v is None else ngraph_v
 
-    # List subjects for archi database
+    # List subjects
     snames = []
     scenters = []
     for center in centers:
@@ -135,10 +154,30 @@ def bv_cohort(name, db_dir, hemi, centers, acquisition="default_acquisition",
 
     subjects = []
     for i, s in enumerate(snames):
+        # T1
+        t1 = op.join(
+            db_dir, scenters[i], s, 't1mri', acquisition, s + ".nii.gz"
+        )
+
+        # Roots
+        roots = op.join(
+            db_dir, scenters[i], s, 't1mri', acquisition, analysis,
+            'segmentation', hemi + 'roots_' + s + '.nii.gz'
+        )
+
+        # Skeleton
+        skeleton = op.join(
+            db_dir, scenters[i], s, 't1mri', acquisition, analysis,
+            'segmentation', hemi + 'skeleton_' + s + '.nii.gz'
+        )
+
+        # Graph
         gfile = op.join(
             db_dir, scenters[i], s, 't1mri', acquisition, analysis, 'folds',
             graph_v, session, hemi + s + '_' + session + '.arg'
         )
+
+        # Not cut graph
         if ngraph_v == -1:
             ngfile = None
         else:
@@ -146,7 +185,8 @@ def bv_cohort(name, db_dir, hemi, centers, acquisition="default_acquisition",
                 db_dir, scenters[i], s, 't1mri', acquisition, analysis, 'folds',
                 ngraph_v, hemi + s + '.arg'
             )
-        subjects.append(SubjectDataset(s, gfile, ngfile))
+
+        subjects.append(SubjectDataset(s, t1, roots, skeleton, gfile, ngfile))
     return Cohort(name + "_hemi-" + hemi, subjects)
 
 
