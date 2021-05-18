@@ -4,11 +4,11 @@
     subjects using GPU).
 """
 import os.path as op
-from deepsulci.sulci_labeling.capsul import SulciDeepTraining
+from deepsulci.sulci_labeling.capsul.training import SulciDeepTraining
 import json
-import sys
-from os import makedirs, listdir
+from os import makedirs
 from datetime import datetime
+import argparse
 
 from using_deepsulci.cohort import Cohort
 from using_deepsulci.utils.misc import add_to_text_file
@@ -39,60 +39,40 @@ def train_cohort(cohort, out_dir, modelname, translation_file=None, cuda=-1):
     if op.exists(proc.model_file):
         print("Skipping the training. Model file already exist.")
     else:
-        proc._run_process()
+        proc.run()
 
 
 def main():
-    # Load environnement file
-    env = json.load(open(op.join(op.split(__file__)[0], "env.json")))
+    parser = argparse.ArgumentParser(description='Train CNN model')
+    parser.add_argument('-c', dest='cohorts', type=str, nargs='+', default=None, required=False,
+                        help='Cohort names')
+    parser.add_argument('--cuda', dest='cuda', type=int, default=-1,
+                        help='Use a speciific cuda device ID or CPU (-1)')
+    parser.add_argument('-e', dest='env', type=str, default=None,
+                        help="Configuration file")
+    args = parser.parse_args()
+
+    # Load environnment file
+    env_f = args.env if args.env else op.join(op.split(__file__)[0], "env.json")
+    env = json.load(open(env_f))
+
     cohorts_dir = op.join(env['working_path'], "cohorts")
-
-    infered_file = None
-    if len(sys.argv) < 2:
-        sys.argv.append(cohorts_dir)
-    else:
-        infered_files = []
-        if isinstance(sys.argv[1], str):
-            for c in sys.argv[1:]:
-                infered_files.append(op.join(cohorts_dir, "cohort-" + c + ".json"))
-
-    if op.isdir(sys.argv[1]):
-        cohorts = []
-        for cfile in listdir(sys.argv[1]):
-            cohorts.append(Cohort(from_json=op.join(sys.argv[1], cfile)))
-        print(len(cohorts), " models to train")
-        for c in cohorts:
-            print("\t{}: {} subjects".format(c.name, len(c)))
-    elif op.isfile(sys.argv[1]):
-        cohorts = [Cohort(from_json=sys.argv[1])]
-    else:
-        cohorts = []
-        for f in infered_files:
-            cohorts.append(Cohort(from_json=f))
-
-    cohorts = sorted(cohorts, key=len)
-
-    cuda = env['default_cuda']
-
     outdir = op.join(env['working_path'], "models")
     makedirs(outdir, exist_ok=True)
-
     now = datetime.now().strftime("%Y%m%d_%H:%M:%S")
     makedirs(op.join(env["working_path"], "logs"), exist_ok=True)
     log_f = op.join(env["working_path"], "logs", "step_02_" + now + ".log")
 
+    cohorts = []
+    for c in args.cohorts:
+        cohorts.append(Cohort(from_json=op.join(cohorts_dir, "cohort-" + c + ".json")))
+    cohorts = sorted(cohorts, key=len)
+
     for cohort in cohorts:
         print("\n\n ****** START TO TRAIN ", cohort.name)
         now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        add_to_text_file(log_f, "{} - Start to train {}".format(now,
-                                                                cohort.name))
-        train_cohort(
-            cohort,
-            outdir,
-            "unet3d",
-            env['translation_file'],
-            cuda
-        )
+        add_to_text_file(log_f, "{} - Start to train {}".format(now, cohort.name))
+        train_cohort(cohort, outdir, "unet3d", env['translation_file'], args.cuda)
     return None
 
 

@@ -2,6 +2,7 @@ import sys
 import json
 import os.path as op
 from os import makedirs
+import argparse
 
 from deepsulci.sulci_labeling.capsul.labeling import SulciDeepLabeling
 from deepsulci.sulci_labeling.capsul.error_computation import ErrorComputation
@@ -68,22 +69,32 @@ def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
 
 
 def main():
-    env = json.load(open(op.join(op.split(__file__)[0], "env.json")))
+    parser = argparse.ArgumentParser(description='Test trained CNN model')
+    parser.add_argument('-c', dest='cohort', type=str, default=None, required=False,
+                        help='Testing cohort name')
+    parser.add_argument('-m', dest='model', type=str, default=None, required=False,
+                        help='Model name')
+    # parser.add_argument('--cuda', dest='cuda', type=int, default=-1,
+    #                     help='Use a speciific cuda device ID or CPU (-1)')
+    parser.add_argument('-e', dest='env', type=str, default=None,
+                        help="Configuration file")
+    args = parser.parse_args()
+
+    # Load environnment file
+    env_f = args.env if args.env else op.join(op.split(__file__)[0], "env.json")
+    env = json.load(open(env_f))
     model_dir = op.join(env['working_path'], "models")
     cohort_dir = op.join(env['working_path'], "cohorts")
 
-    modelname = sys.argv[1]
-    cohortname = sys.argv[2]
-
-    print("Evaluate:", modelname)
+    print("Evaluate:", args.model)
 
     # cohortname = modelname.split("_model")[0]
-    cohort_f = op.join(cohort_dir, cohortname + ".json")
+    cohort_f = op.join(cohort_dir, args.cohort + ".json")
 
-    model_f = op.join(model_dir, modelname + "_model.mdsm")
-    params_f = op.join(model_dir, modelname + "_params.json")
+    model_f = op.join(model_dir, args.model + "_model.mdsm")
+    params_f = op.join(model_dir, args.model + "_params.json")
 
-    out_d = op.join(env['working_path'], "evaluations", modelname)
+    out_d = op.join(env['working_path'], "evaluations", args.model)
     makedirs(out_d, exist_ok=True)
     # fname = modelname + "_teston-" + cohortname + ".npy"
     # evaluate_model(Cohort(from_json=cohort_f), env['translation_file'],

@@ -19,6 +19,7 @@
 import os.path as op
 from os import makedirs
 import json
+import argparse
 from using_deepsulci.cohort import bv_cohort, Cohort
 
 
@@ -83,8 +84,13 @@ def foldico_cohorts(cohort_desc, hemi="both", composed_desc={}):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Create cohorts files (.json)')
+    parser.add_argument('-e', dest='env', type=str, default=None, help="Configuration file")
+    args = parser.parse_args()
+
     # Load environnment file
-    env = json.load(open(op.join(op.split(__file__)[0], "env.json")))
+    env_f = args.env if args.env else op.join(op.split(__file__)[0], "env.json")
+    env = json.load(open(env_f))
 
     cohorts_dir = op.join(env['working_path'], "cohorts")
     makedirs(cohorts_dir, exist_ok=True)

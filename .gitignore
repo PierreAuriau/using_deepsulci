@@ -2,3 +2,6 @@ local*/
 *.json
 *.log
 *.nii*
+*.pt
+*.egg*
+*.idea
