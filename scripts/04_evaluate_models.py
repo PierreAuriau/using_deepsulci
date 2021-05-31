@@ -5,12 +5,12 @@ from os import makedirs
 import argparse
 
 from deepsulci.sulci_labeling.capsul.labeling import SulciDeepLabeling
-from deepsulci.sulci_labeling.capsul.error_computation import ErrorComputation
+# from deepsulci.sulci_labeling.capsul.error_computation import ErrorComputation
 
 from using_deepsulci.cohort import Cohort
 from using_deepsulci.processes.classification_evaluation import \
     DeepClassificationEvaluation
-
+from using_deepsulci.processes.labeling_evaluation import LabelingEvaluation
 from joblib import parallel, delayed, cpu_count
 
 from capsul.api import capsul_engine
@@ -63,12 +63,12 @@ def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
 
         # esi_proc = ce.get_process_instance(
         #     'deepsulci.sulci_labeling.capsul.error_computation')
-        esi_proc = ErrorComputation()
+        esi_proc = LabelingEvaluation()
         esi_proc.t1mri = sub.t1
         esi_proc.true_graph = sub.graph
-        esi_proc.labeled_graph = labeled_graph
+        esi_proc.labeled_graphs = [labeled_graph]
         esi_proc.sulci_side_list = ss_list
-        esi_proc.error_file = op.join(esi_dir, g_fname[:-4] + '_esi.csv')
+        esi_proc.scores_file = op.join(esi_dir, g_fname[:-4] + '_scores.csv')
         esi_proc.run()
 
 
