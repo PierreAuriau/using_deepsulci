@@ -11,6 +11,8 @@ from using_deepsulci.cohort import Cohort
 from using_deepsulci.processes.classification_evaluation import \
     DeepClassificationEvaluation
 
+from joblib import parallel, delayed, cpu_count
+
 from capsul.api import capsul_engine
 
 # def evaluate_model(cohort, translation_file, model_file, param_file, out_file):
@@ -29,6 +31,8 @@ from capsul.api import capsul_engine
 #     proc._run_process()
 
 
+
+
 def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
     # ce = capsul_engine()
     esi_dir = labeled_dir if esi_dir is None else esi_dir
@@ -38,8 +42,8 @@ def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
 
     if 'cutting_threshold' not in params.keys():
         # TODO: better manage of this or verify that the default value
-        print("/!\\ No cutting threshold, setting arbitrary value: 1")
-        params['cutting_threshold'] = 1
+        print("/!\\ No cutting threshold, setting arbitrary value: 250")
+        params['cutting_threshold'] = 250
         json.dump(params, open(param_file, 'w+'))
 
     for sub in cohort.subjects:
