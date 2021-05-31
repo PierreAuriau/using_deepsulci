@@ -3,15 +3,15 @@ import json
 import os.path as op
 from os import makedirs
 import argparse
+import pandas as pd
 
 from deepsulci.sulci_labeling.capsul.labeling import SulciDeepLabeling
 # from deepsulci.sulci_labeling.capsul.error_computation import ErrorComputation
 
 from using_deepsulci.cohort import Cohort
-from using_deepsulci.processes.classification_evaluation import \
-    DeepClassificationEvaluation
 from using_deepsulci.processes.labeling_evaluation import LabelingEvaluation
-from joblib import parallel, delayed, cpu_count
+from joblib import Parallel, delayed
+from utils import real_njobs
 
 from capsul.api import capsul_engine
 
@@ -31,9 +31,36 @@ from capsul.api import capsul_engine
 #     proc._run_process()
 
 
+def evaluation_job(sub, labeled_dir, model_file, param_file, ss_list, esi_dir):
+    g_fname = op.split(sub.graph)[1]
+    labeled_graph = op.join(labeled_dir, g_fname)
+
+    # lab_proc = ce.get_process_instance(
+    #     'deepsulci.sulci_labeling.capsul.labeling')
+    lab_proc = SulciDeepLabeling()
+    lab_proc.graph = sub.graph
+    lab_proc.roots = sub.roots
+    lab_proc.skeleton = sub.skeleton
+    lab_proc.model_file = model_file
+    lab_proc.param_file = param_file
+    lab_proc.labeled_graph = labeled_graph
+    lab_proc.run()
+
+    # esi_proc = ce.get_process_instance(
+    #     'deepsulci.sulci_labeling.capsul.error_computation')
+    esi_proc = LabelingEvaluation()
+    esi_proc.t1mri = sub.t1
+    esi_proc.true_graph = sub.graph
+    esi_proc.labeled_graphs = [labeled_graph]
+    esi_proc.sulci_side_list = ss_list
+    esi_proc.scores_file = op.join(esi_dir, g_fname[:-4] + '_scores.csv')
+    esi_proc.run()
+
+    return esi_proc.scores_file
 
 
-def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
+def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None,
+                   n_jobs=1):
     # ce = capsul_engine()
     esi_dir = labeled_dir if esi_dir is None else esi_dir
     params = json.load(open(param_file))
@@ -46,30 +73,14 @@ def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
         params['cutting_threshold'] = 250
         json.dump(params, open(param_file, 'w+'))
 
-    for sub in cohort.subjects:
-        g_fname = op.split(sub.graph)[1]
-        labeled_graph = op.join(labeled_dir, g_fname)
+    # results = parallel()
+    scores_files = Parallel(n_jobs=real_njobs(n_jobs))(delayed(evaluation_job) \
+      (sub, labeled_dir, model_file, param_file, ss_list, esi_dir)
+        for sub in cohort.subjects)
 
-        # lab_proc = ce.get_process_instance(
-        #     'deepsulci.sulci_labeling.capsul.labeling')
-        lab_proc = SulciDeepLabeling()
-        lab_proc.graph = sub.graph
-        lab_proc.roots = sub.roots
-        lab_proc.skeleton = sub.skeleton
-        lab_proc.model_file = model_file
-        lab_proc.param_file = param_file
-        lab_proc.labeled_graph = labeled_graph
-        lab_proc.run()
-
-        # esi_proc = ce.get_process_instance(
-        #     'deepsulci.sulci_labeling.capsul.error_computation')
-        esi_proc = LabelingEvaluation()
-        esi_proc.t1mri = sub.t1
-        esi_proc.true_graph = sub.graph
-        esi_proc.labeled_graphs = [labeled_graph]
-        esi_proc.sulci_side_list = ss_list
-        esi_proc.scores_file = op.join(esi_dir, g_fname[:-4] + '_scores.csv')
-        esi_proc.run()
+    dframes = list(pd.read_csv(f) for f in scores_files)
+    all_scores = pd.concat(dframes)
+    all_scores.to_csv(op.join(esi_dir, "all_scores.csv"))
 
 
 def main():
@@ -82,6 +93,7 @@ def main():
     #                     help='Use a speciific cuda device ID or CPU (-1)')
     parser.add_argument('-e', dest='env', type=str, default=None,
                         help="Configuration file")
+    parser.add_argument('-n', dest='njobs', type=int, default=1, help='Number of parallel jobs')
     args = parser.parse_args()
 
     # Load environnment file
