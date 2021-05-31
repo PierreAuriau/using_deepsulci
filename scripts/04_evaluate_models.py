@@ -5,11 +5,13 @@ from os import makedirs
 import argparse
 
 from deepsulci.sulci_labeling.capsul.labeling import SulciDeepLabeling
-from deepsulci.sulci_labeling.capsul.labeling_evaluation import LabelingEvaluation
+# from deepsulci.sulci_labeling.capsul.error_computation import ErrorComputation
 
 from using_deepsulci.cohort import Cohort
 from using_deepsulci.processes.classification_evaluation import \
     DeepClassificationEvaluation
+from using_deepsulci.processes.labeling_evaluation import LabelingEvaluation
+from joblib import parallel, delayed, cpu_count
 
 from capsul.api import capsul_engine
 
@@ -27,6 +29,8 @@ from capsul.api import capsul_engine
 #     proc.cuda = -1
 #     proc.out_file = out_file
 #     proc._run_process()
+
+
 
 
 def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None):
