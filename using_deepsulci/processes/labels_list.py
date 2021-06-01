@@ -36,7 +36,7 @@ class SulciList(Process):
                  'applied on the training base graphs (optional)'))
 
         self.add_trait('report', traits.File(
-            output=True, desc='file (.json) stats'))
+            output=True, desc='file (.csv) stats'))
 
     def _run_process(self):
         agraphs = np.asarray(self.graphs)
