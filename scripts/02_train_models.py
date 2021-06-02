@@ -9,14 +9,24 @@ import json
 from os import makedirs
 from datetime import datetime
 import argparse
+import shutil
 
 from using_deepsulci.cohort import Cohort
 from using_deepsulci.utils.misc import add_to_text_file
 
 
-def train_cohort(cohort, out_dir, modelname, translation_file=None, steps=None, cuda=-1):
+def train_cohort(cohort, out_dir, fname, translation_file=None, steps=None,
+                 cuda=-1, extend=None):
     proc = SulciDeepTraining()
 
+    if extend:
+        new_name = fname + "_ext-" + extend.name
+        for ext in ["_model.mdsm", "_params.json", "_traindata.json"]:
+            shutil.copyfile(
+                op.join(out_dir, fname + ext),
+                op.join(out_dir, new_name + ext)
+            )
+        fname = new_name
 
     # Inputs
     proc.graphs = cohort.get_graphs()
@@ -32,7 +42,6 @@ def train_cohort(cohort, out_dir, modelname, translation_file=None, steps=None, 
     #bool(len(cohort.get_notcut_graphs()))
 
     # Outputs
-    fname = "cohort-" + cohort.name + "_model-" + modelname
     proc.model_file = op.join(out_dir, fname + "_model.mdsm")
     proc.param_file = op.join(out_dir, fname + "_params.json")
     proc.traindata_file = op.join(out_dir, fname + "_traindata.json")
@@ -49,6 +58,8 @@ def main():
     parser = argparse.ArgumentParser(description='Train CNN model')
     parser.add_argument('-c', dest='cohorts', type=str, nargs='+', default=None, required=False,
                         help='Cohort names')
+    parser.add_argument('-x', dest='extends', type=str, default=None, required=False,
+                        help='Poursue training adding a new cohort')
 
     parser.add_argument('-s', dest='steps', type=int, nargs='+', default=None,
                         help='Steps to run')
@@ -74,11 +85,18 @@ def main():
         cohorts.append(Cohort(from_json=op.join(cohorts_dir, "cohort-" + c + ".json")))
     cohorts = sorted(cohorts, key=len)
 
+    if args.extends:
+        extend = Cohort(from_json=op.join(cohorts_dir, "cohort-" + c + ".json"))
+    else:
+        extend = None
+
     for cohort in cohorts:
         print("\n\n ****** START TO TRAIN ", cohort.name)
         now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         add_to_text_file(log_f, "{} - Start to train {}".format(now, cohort.name))
-        train_cohort(cohort, outdir, "unet3d", env['translation_file'], args.steps, args.cuda)
+        fname = "cohort-" + cohort.name + "_model-unet3d"
+        train_cohort(cohort, outdir, fname, env['translation_file'],
+                     args.steps, args.cuda, extend)
     return None
 
 
