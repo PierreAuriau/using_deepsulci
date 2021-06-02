@@ -62,6 +62,7 @@ class LabelingEvaluation(Process):
         for gfile in self.labeled_graphs:
             graph = aims.read(gfile)
             bck, _, labels = extract_data(graph)
+            labels = np.array(labels)
             y_pred = [vor[int(round(p[0])),
                           int(round(p[1])),
                           int(round(p[2]))][0] for p in bck]
@@ -80,14 +81,14 @@ class LabelingEvaluation(Process):
                 # False Negatives: ss is not predicted but it should be
                 FN = float(len(names_ss[names_ss != ss]))*vvol
                 # True Negatives: ss is not predicted and that's correct
-                TN = float(len(names[names != ss * labels != ss]))*vvol
+                TN = float(np.sum([(names != ss) * (labels != ss)]))*vvol
 
                 # Accuracy, Sensitivity, Specificity and Balanced accuracy
                 re.ix[gfile, 'acc_' + str(ss)] = (TP + TN) / (TP + TN + FP + FN)
-                re.ix[gfile, 'sens_' + str(ss)] = TP / (TP + FN)
-                re.ix[gfile, 'spec_' + str(ss)] = TN / (TN + FP)
+                re.ix[gfile, 'sens_' + str(ss)] = TP / (TP + FN) if TP + FN > 0 else np.nan
+                re.ix[gfile, 'spec_' + str(ss)] = TN / (TN + FP) if TN + FP > 0 else np.nan
                 re.ix[gfile, 'bacc_' + str(ss)] = \
-                    ((TP / (TP + FN)) + (TN / (TN + FP))) / 2
+                   (re.ix[gfile, 'sens_' + str(ss)] + re.ix[gfile, 'spec_' + str(ss)]) / 2
 
                 re.ix[gfile, 'TP_' + str(ss)] = TP
                 re.ix[gfile, 'FP_' + str(ss)] = FP
@@ -111,7 +112,7 @@ class LabelingEvaluation(Process):
 
             re.ix[gfile, 'ESI'] = sum([re.ix[gfile, 'ESI_'+str(ss)]
                                       for ss in self.sulci_side_list])
-        re.to_csv(self.error_file)
+        re.to_csv(self.scores_file)
 
         print('Mean ESI: %.3f' % re['ESI'].mean())
         print('Max ESI: %.3f' % re['ESI'].max())

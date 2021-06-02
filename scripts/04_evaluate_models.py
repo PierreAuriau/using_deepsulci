@@ -4,6 +4,9 @@ import os.path as op
 from os import makedirs
 import argparse
 import pandas as pd
+import signal
+import os
+import numpy as np
 
 from deepsulci.sulci_labeling.capsul.labeling import SulciDeepLabeling
 # from deepsulci.sulci_labeling.capsul.error_computation import ErrorComputation
@@ -15,48 +18,67 @@ from utils import real_njobs
 
 from capsul.api import capsul_engine
 
-# def evaluate_model(cohort, translation_file, model_file, param_file, out_file):
-#     graphs = []
-#     for s in cohort.subjects:
-#         graphs.append(s.graph)
-#     print(len(graphs), "graphs to evaluate")
-#
-#     proc = DeepClassificationEvaluation()
-#     proc.graphs = graphs
-#     proc.translation_file = translation_file
-#     proc.model_file = model_file
-#     proc.param_file = param_file
-#     proc.cuda = -1
-#     proc.out_file = out_file
-#     proc._run_process()
+
+def html_report(df, ss_list):
+    N = len(df["s_"+ss_list[0]])
+    html = '<html><head>'
+    html += '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">'
+    html += '</head><body>'
+    html += '<h1></h1>'
+    html += '<table class="table"><thead><tr><td>Sulci</td><td>Occurences</td><td>Acc.</td><td>B. Acc.</td><td>Sensitivity</td><td>Specificity</td><td>ESI</td></tr></thead><tbody>'
+    for ss in ss_list:
+        n = np.sum(df['s_' + ss] > 0)
+        html += '<tr><td>{}</td><td>{}/{}</td><td>{:.01f}% (+/- {:.01f}%)</td><td>{:.01f}% ' \
+                '(+/- {:.01f}%)</td><td>{:.01f}% (+/- {:.01f}%)</td><td>{:.01f}% (+/- {:.01f}%)</td><td>{:.01f}% (+/- {:.01f}%)</td>'.format(
+            ss, n, N, 100*np.mean(df['acc_' + ss]), 100*np.std(df['acc_' + ss]),
+            100*np.mean(df['bacc_' + ss]), 100*np.std(df['bacc_' + ss]),
+            100*np.mean(df['sens_' + ss]), 100*np.std(df['sens_' + ss]),
+            100*np.mean(df['spec_' + ss]), 100*np.std(df['spec_' + ss]),
+            100*np.mean(df['ESI_' + ss]), 100*np.std(df['ESI_' + ss])
+        )
+    html += '</tbody></table>'
+
+    html += '<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" ' \
+            'integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+' \
+            'IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>'
+    html += '<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/' \
+            'js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12' \
+            'Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="ano' \
+            'nymous"></script>'
+    return html + '</body></html>'
 
 
 def evaluation_job(sub, labeled_dir, model_file, param_file, ss_list, esi_dir):
     g_fname = op.split(sub.graph)[1]
     labeled_graph = op.join(labeled_dir, g_fname)
 
-    # lab_proc = ce.get_process_instance(
-    #     'deepsulci.sulci_labeling.capsul.labeling')
-    lab_proc = SulciDeepLabeling()
-    lab_proc.graph = sub.graph
-    lab_proc.roots = sub.roots
-    lab_proc.skeleton = sub.skeleton
-    lab_proc.model_file = model_file
-    lab_proc.param_file = param_file
-    lab_proc.labeled_graph = labeled_graph
-    lab_proc.run()
+    if not op.exists(labeled_graph):
+        lab_proc = SulciDeepLabeling()
+        lab_proc.graph = sub.graph
+        lab_proc.roots = sub.roots
+        lab_proc.skeleton = sub.skeleton
+        lab_proc.model_file = model_file
+        lab_proc.param_file = param_file
+        lab_proc.rebuild_attributes = False
+        lab_proc.labeled_graph = labeled_graph
+        lab_proc.run()
+    else:
+        print(labeled_graph, "already exists")
 
     # esi_proc = ce.get_process_instance(
     #     'deepsulci.sulci_labeling.capsul.error_computation')
-    esi_proc = LabelingEvaluation()
-    esi_proc.t1mri = sub.t1
-    esi_proc.true_graph = sub.graph
-    esi_proc.labeled_graphs = [labeled_graph]
-    esi_proc.sulci_side_list = ss_list
-    esi_proc.scores_file = op.join(esi_dir, g_fname[:-4] + '_scores.csv')
-    esi_proc.run()
-
-    return esi_proc.scores_file
+    scr_f = op.join(esi_dir, g_fname[:-4] + '_scores.csv')
+    if not op.exists(scr_f):
+        esi_proc = LabelingEvaluation()
+        esi_proc.t1mri = sub.t1
+        esi_proc.true_graph = sub.graph
+        esi_proc.labeled_graphs = [labeled_graph]
+        esi_proc.sulci_side_list = ss_list
+        esi_proc.scores_file = scr_f
+        esi_proc.run()
+    else:
+        print(scr_f, 'already exists')
+    return scr_f
 
 
 def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None,
@@ -78,9 +100,17 @@ def evaluate_model(cohort, model_file, param_file, labeled_dir, esi_dir=None,
       (sub, labeled_dir, model_file, param_file, ss_list, esi_dir)
         for sub in cohort.subjects)
 
-    dframes = list(pd.read_csv(f) for f in scores_files)
+    dframes = []
+    for i, f in enumerate(scores_files):
+        if f:
+            dframes.append(pd.read_csv(f))
+        else:
+            print('Error for subject', cohort.subjects[i].name)
     all_scores = pd.concat(dframes)
-    all_scores.to_csv(op.join(esi_dir, "all_scores.csv"))
+
+    all_scores.to_csv(op.join(esi_dir, "cohort-" + cohort.name + ".csv"))
+    with open(op.join(esi_dir, "cohort-" + cohort.name + ".html"), 'w+') as f:
+        f.write(html_report(all_scores, ss_list))
 
 
 def main():
@@ -116,7 +146,7 @@ def main():
     # evaluate_model(Cohort(from_json=cohort_f), env['translation_file'],
     #                model_f, params_f, op.join(out_d, fname))
     evaluate_model(Cohort(from_json=cohort_f), model_f, params_f,
-                   labeled_dir=out_d)
+                   labeled_dir=out_d, n_jobs=args.njobs)
 
 
 if __name__ == "__main__":

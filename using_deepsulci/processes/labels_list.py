@@ -12,6 +12,17 @@ import pandas as pd
 from capsul.api import Process
 from soma import aims
 from deepsulci.deeptools.dataset import extract_data
+from joblib import Parallel, delayed, cpu_count
+
+
+def extract_names(gfile, i, total, flt=None):
+    print("Reading file {} / {}".format(i, total))
+    graph = aims.read(gfile)
+    if flt is not None:
+        flt.translate(graph)
+
+    data = extract_data(graph)
+    return np.asarray(data['names'])
 
 
 class SulciList(Process):
@@ -51,31 +62,19 @@ class SulciList(Process):
             print('Translation file not found.')
 
         # Read all graphs
+        n = max(cpu_count() - 2, 1)
+        names_arrays = Parallel(n_jobs=n)(delayed(extract_names) \
+              (gfile, ig+1, len(agraphs), flt) for ig, gfile in enumerate(agraphs))
+
         sulci_side_list = set()
-        dict_bck2 = {}
-        dict_names = {}
-        for gfile in agraphs:
-            print("Reading", gfile)
-            graph = aims.read(gfile)
-            if trfile is not None:
-                flt.translate(graph)
+        for l in names_arrays:
+            for name in l:
+                sulci_side_list.add(name)
 
-            print("Extracting sulci data...")
-            data = extract_data(graph)
-            dict_bck2[gfile] = data['bck2']
-            dict_names[gfile] = data['names']
-            for n in data['names']:
-                sulci_side_list.add(n)
-            print(len(dict_names[gfile]), "names")
-            print(len(dict_bck2[gfile]), "buckets")
-
-        out_data = {"label": []}
-        for fname in agraphs:
-            out_data[fname] = []
-
-        for name in sulci_side_list:
-            for fname in agraphs:
-                out_data[fname] = np.sum(dict_names[fname] == name)
-
-        df = pd.DataFrame(out_data)
-        print(df.head(5))
+        counts = {k: [] for k in ['graph'] + list(sulci_side_list)}
+        for ig, fname in enumerate(agraphs):
+            counts['graph'].append(fname)
+            for ss in sulci_side_list:
+                counts[ss].append(np.sum(names_arrays[ig] == ss))
+        df = pd.DataFrame(counts)
+        df.to_csv(self.report)
