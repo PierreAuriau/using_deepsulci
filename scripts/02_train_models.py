@@ -14,8 +14,9 @@ from using_deepsulci.cohort import Cohort
 from using_deepsulci.utils.misc import add_to_text_file
 
 
-def train_cohort(cohort, out_dir, modelname, translation_file=None, cuda=-1):
+def train_cohort(cohort, out_dir, modelname, translation_file=None, steps=None, cuda=-1):
     proc = SulciDeepTraining()
+
 
     # Inputs
     proc.graphs = cohort.get_graphs()
@@ -24,10 +25,11 @@ def train_cohort(cohort, out_dir, modelname, translation_file=None, cuda=-1):
     proc.translation_file = translation_file
 
     # Steps
-    proc.step_1 = True
-    proc.step_2 = True
-    proc.step_3 = True
-    proc.step_4 = bool(len(cohort.get_notcut_graphs()))
+    proc.step_1 = not steps or (steps and 1 in steps)
+    proc.step_2 = not steps or (steps and 2 in steps)
+    proc.step_3 = not steps or (steps and 3 in steps)
+    proc.step_4 = not steps or (steps and 4 in steps)
+    #bool(len(cohort.get_notcut_graphs()))
 
     # Outputs
     fname = "cohort-" + cohort.name + "_model-" + modelname
@@ -38,6 +40,7 @@ def train_cohort(cohort, out_dir, modelname, translation_file=None, cuda=-1):
     # Run
     if op.exists(proc.model_file):
         print("Skipping the training. Model file already exist.")
+        print(proc.model_file)
     else:
         proc.run()
 
@@ -46,6 +49,9 @@ def main():
     parser = argparse.ArgumentParser(description='Train CNN model')
     parser.add_argument('-c', dest='cohorts', type=str, nargs='+', default=None, required=False,
                         help='Cohort names')
+
+    parser.add_argument('-s', dest='steps', type=int, nargs='+', default=None,
+                        help='Steps to run')
     parser.add_argument('--cuda', dest='cuda', type=int, default=-1,
                         help='Use a speciific cuda device ID or CPU (-1)')
     parser.add_argument('-e', dest='env', type=str, default=None,
@@ -72,7 +78,7 @@ def main():
         print("\n\n ****** START TO TRAIN ", cohort.name)
         now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         add_to_text_file(log_f, "{} - Start to train {}".format(now, cohort.name))
-        train_cohort(cohort, outdir, "unet3d", env['translation_file'], args.cuda)
+        train_cohort(cohort, outdir, "unet3d", env['translation_file'], args.steps, args.cuda)
     return None
 
 
