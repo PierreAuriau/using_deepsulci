@@ -155,21 +155,21 @@ def bv_cohort(name, db_dir, hemi, centers, acquisition="default_acquisition",
     subjects = []
     for i, s in enumerate(snames):
         # T1
-        t1 = op.join(
-            db_dir, scenters[i], s, 't1mri', acquisition, s + ".nii.gz"
-        )
-
+        if op.exists(op.join(db_dir, scenters[i], s, 't1mri', acquisition, s + ".nii")):
+            t1 = op.join(db_dir, scenters[i], s, 't1mri', acquisition, s + ".nii")
+        else:
+            t1 = op.join(db_dir, scenters[i], s, 't1mri', acquisition, s + ".nii.gz")
         # Roots
-        roots = op.join(
-            db_dir, scenters[i], s, 't1mri', acquisition, analysis,
-            'segmentation', hemi + 'roots_' + s + '.nii.gz'
-        )
+        if op.exists(op.join(db_dir, scenters[i], s, 't1mri', acquisition, analysis,'segmentation', hemi + 'roots_' + s + '.nii')):
+            roots = op.join(db_dir, scenters[i], s, 't1mri', acquisition, analysis,'segmentation', hemi + 'roots_' + s + '.nii')
+        else:
+            roots = op.join(db_dir, scenters[i], s, 't1mri', acquisition, analysis,'segmentation', hemi + 'roots_' + s + '.nii.gz')
 
         # Skeleton
-        skeleton = op.join(
-            db_dir, scenters[i], s, 't1mri', acquisition, analysis,
-            'segmentation', hemi + 'skeleton_' + s + '.nii.gz'
-        )
+        if op.exists(op.join(db_dir, scenters[i], s, 't1mri', acquisition, analysis,'segmentation', hemi + 'skeleton_' + s + '.nii')):
+            skeleton = op.join(db_dir, scenters[i], s, 't1mri', acquisition, analysis,'segmentation', hemi + 'skeleton_' + s + '.nii')
+        else:
+            skeleton = op.join(db_dir, scenters[i], s, 't1mri', acquisition, analysis,'segmentation', hemi + 'skeleton_' + s + '.nii.gz')
 
         # Graph
         gfile = op.join(
